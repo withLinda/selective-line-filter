@@ -166,7 +166,7 @@ npm start
 
 ## License
 
-This project is private and not licensed for public use.
+MIT License - free to use, modify, and distribute.
 
 ## Contributing
 
