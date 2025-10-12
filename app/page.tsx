@@ -101,7 +101,7 @@ const LineNumberedTextarea = forwardRef<HTMLTextAreaElement, LineNumberedTextare
       if (!textarea || !numbers) return;
 
       const syncScroll = () => {
-        numbers.scrollTop = textarea.scrollTop;
+        numbers.style.transform = `translateY(${-textarea.scrollTop}px)`;
       };
 
       textarea.addEventListener("scroll", syncScroll);
@@ -116,7 +116,7 @@ const LineNumberedTextarea = forwardRef<HTMLTextAreaElement, LineNumberedTextare
       const textarea = textareaRef.current;
       const numbers = numberRef.current;
       if (!textarea || !numbers) return;
-      numbers.scrollTop = textarea.scrollTop;
+      numbers.style.transform = `translateY(${-textarea.scrollTop}px)`;
     }, [normalizedValue]);
 
     return (
@@ -378,7 +378,7 @@ export default function Home() {
               <LineNumberedTextarea
                 ref={inputRef}
                 spellCheck={false}
-                className="min-h-[260px] resize-y"
+                className="textarea-balanced"
                 placeholder="Paste or type your lines here..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -411,7 +411,7 @@ export default function Home() {
               </div>
               <LineNumberedTextarea
                 spellCheck={false}
-                className="min-h-[120px] resize-y"
+                className="textarea-compact"
                 placeholder={"Examples: ERROR\n^WARN\n\\.com$"}
                 value={needles}
                 onChange={(e) => setNeedles(e.target.value)}
@@ -531,7 +531,7 @@ export default function Home() {
           <LineNumberedTextarea
             ref={outputRef}
             spellCheck={false}
-            className="min-h-[240px] resize-y"
+            className="textarea-balanced"
             containerClassName="bg-bg-3/60"
             placeholder="Filtered output will appear here..."
             value={output}
