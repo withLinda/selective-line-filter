@@ -5,37 +5,37 @@
 /* === Theme Variables (Palette) === */
 :root {
   /* Backgrounds (darkest → lighter) */
-  --bg-0: #1E2326; /* main page background */
-  --bg-1: #272E33;
-  --bg-2: #2E383C;
-  --bg-3: #374145;
-  --bg-4: #414B50;
-  --bg-5: #495156;
-  --bg-6: #4F5B58;
-  --bg-7: #4C3743;
-  --bg-8: #493B40;
-  --bg-9: #45443C;
-  --bg-10: #3C4841;
-  --bg-11: #384B55;
-  --bg-12: #463F48;
+  --bg-0: 30 35 38; /* main page background */
+  --bg-1: 39 46 51;
+  --bg-2: 46 56 60;
+  --bg-3: 55 65 69;
+  --bg-4: 65 75 80;
+  --bg-5: 73 81 86;
+  --bg-6: 79 91 88;
+  --bg-7: 76 55 67;
+  --bg-8: 73 59 64;
+  --bg-9: 69 68 60;
+  --bg-10: 60 72 65;
+  --bg-11: 56 75 85;
+  --bg-12: 70 63 72;
 
   /* Foreground */
-  --fg-default: #D3C6AA;
-  --fg-muted: #9DA9A0;
-  --fg-subtle: #859289;
+  --fg-default: 211 198 170;
+  --fg-muted: 157 169 160;
+  --fg-subtle: 133 146 137;
 
   /* Accents */
-  --ac-rose: #E67E80;
-  --ac-peach: #E69875;
-  --ac-sand: #DBBC7F;
-  --ac-mint: #83C092;
-  --ac-teal: #7FBBB3;
-  --ac-mauve: #D699B6;
+  --ac-rose: 230 126 128;
+  --ac-peach: 230 152 117;
+  --ac-sand: 219 188 127;
+  --ac-mint: 131 192 146;
+  --ac-teal: 127 187 179;
+  --ac-mauve: 214 153 182;
 
   /* Greys */
-  --gx-1: #7A8478;
-  --gx-2: #859289;
-  --gx-3: #9DA9A0;
+  --gx-1: 122 132 120;
+  --gx-2: 133 146 137;
+  --gx-3: 157 169 160;
 }
 
 html, body {
