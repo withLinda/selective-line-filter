@@ -11,27 +11,37 @@ const config: Config = {
       colors: {
         // Palette bound to CSS variables so we can theme easily
         bg: {
-          0: 'var(--bg-0)', 1: 'var(--bg-1)', 2: 'var(--bg-2)', 3: 'var(--bg-3)',
-          4: 'var(--bg-4)', 5: 'var(--bg-5)', 6: 'var(--bg-6)', 7: 'var(--bg-7)',
-          8: 'var(--bg-8)', 9: 'var(--bg-9)', 10: 'var(--bg-10)', 11: 'var(--bg-11)', 12: 'var(--bg-12)'
+          '0': 'rgb(var(--bg-0) / <alpha-value>)',
+          '1': 'rgb(var(--bg-1) / <alpha-value>)',
+          '2': 'rgb(var(--bg-2) / <alpha-value>)',
+          '3': 'rgb(var(--bg-3) / <alpha-value>)',
+          '4': 'rgb(var(--bg-4) / <alpha-value>)',
+          '5': 'rgb(var(--bg-5) / <alpha-value>)',
+          '6': 'rgb(var(--bg-6) / <alpha-value>)',
+          '7': 'rgb(var(--bg-7) / <alpha-value>)',
+          '8': 'rgb(var(--bg-8) / <alpha-value>)',
+          '9': 'rgb(var(--bg-9) / <alpha-value>)',
+          '10': 'rgb(var(--bg-10) / <alpha-value>)',
+          '11': 'rgb(var(--bg-11) / <alpha-value>)',
+          '12': 'rgb(var(--bg-12) / <alpha-value>)',
         },
         fg: {
-          DEFAULT: 'var(--fg-default)',
-          muted: 'var(--fg-muted)',
-          subtle: 'var(--fg-subtle)'
+          DEFAULT: 'rgb(var(--fg-default) / <alpha-value>)',
+          muted: 'rgb(var(--fg-muted) / <alpha-value>)',
+          subtle: 'rgb(var(--fg-subtle) / <alpha-value>)',
         },
         accent: {
-          rose: 'var(--ac-rose)',
-          peach: 'var(--ac-peach)',
-          sand: 'var(--ac-sand)',
-          mint: 'var(--ac-mint)',
-          teal: 'var(--ac-teal)',
-          mauve: 'var(--ac-mauve)'
+          rose: 'rgb(var(--ac-rose) / <alpha-value>)',
+          peach: 'rgb(var(--ac-peach) / <alpha-value>)',
+          sand: 'rgb(var(--ac-sand) / <alpha-value>)',
+          mint: 'rgb(var(--ac-mint) / <alpha-value>)',
+          teal: 'rgb(var(--ac-teal) / <alpha-value>)',
+          mauve: 'rgb(var(--ac-mauve) / <alpha-value>)',
         },
         grayx: {
-          1: 'var(--gx-1)',
-          2: 'var(--gx-2)',
-          3: 'var(--gx-3)'
+          '1': 'rgb(var(--gx-1) / <alpha-value>)',
+          '2': 'rgb(var(--gx-2) / <alpha-value>)',
+          '3': 'rgb(var(--gx-3) / <alpha-value>)',
         }
       },
       boxShadow: {
