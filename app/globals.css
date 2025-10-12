@@ -140,10 +140,23 @@ body {
   white-space: pre;
   min-width: 2.75rem;
   pointer-events: none;
+  will-change: transform;
 }
 
 .line-numbered-textarea {
   @apply w-full flex-1 bg-transparent px-3 py-2 text-sm text-fg placeholder:text-fg-subtle outline-none leading-6;
+}
+
+.textarea-balanced {
+  min-height: clamp(200px, 32vh, 360px);
+  max-height: min(65vh, 520px);
+  resize: vertical;
+}
+
+.textarea-compact {
+  min-height: clamp(140px, 28vh, 280px);
+  max-height: min(55vh, 360px);
+  resize: vertical;
 }
 
 .dropzone {
