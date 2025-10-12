@@ -1,13 +1,19 @@
 "use client";
 
 import {
+  forwardRef,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import type { DragEvent, KeyboardEvent } from "react";
+import type {
+  DragEvent,
+  KeyboardEvent,
+  MutableRefObject,
+  TextareaHTMLAttributes,
+} from "react";
 import { safeFilter, FilterOptions } from "@/lib/filter";
 import { clsx } from "clsx";
 import {
@@ -51,7 +57,89 @@ WARN`,
 
 const SUPPORTED_FILE_TYPES = [".json", ".jsonl", ".txt", ".md"] as const;
 
-const friendlySupported = SUPPORTED_FILE_TYPES.map((ext) => ext.replace(".", "").toUpperCase());
+const friendlySupported = SUPPORTED_FILE_TYPES.map((ext) =>
+  ext.replace(".", "").toUpperCase(),
+);
+
+type LineNumberedTextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & {
+  containerClassName?: string;
+};
+
+const LineNumberedTextarea = forwardRef<HTMLTextAreaElement, LineNumberedTextareaProps>(
+  ({ className, containerClassName, value = "", ...props }, ref) => {
+    const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+    const numberRef = useRef<HTMLDivElement | null>(null);
+
+    const mergedRef = useCallback(
+      (node: HTMLTextAreaElement | null) => {
+        textareaRef.current = node;
+        if (typeof ref === "function") {
+          ref(node);
+        } else if (ref) {
+          (ref as MutableRefObject<HTMLTextAreaElement | null>).current = node;
+        }
+      },
+      [ref],
+    );
+
+    const normalizedValue = useMemo(() => {
+      return Array.isArray(value)
+        ? value.join("\n")
+        : value === undefined || value === null
+          ? ""
+          : String(value);
+    }, [value]);
+
+    const lines = useMemo(() => {
+      const count = Math.max(1, normalizedValue.split(/\r?\n/).length);
+      return Array.from({ length: count }, (_, idx) => `${idx + 1}`).join("\n");
+    }, [normalizedValue]);
+
+    useEffect(() => {
+      const textarea = textareaRef.current;
+      const numbers = numberRef.current;
+      if (!textarea || !numbers) return;
+
+      const syncScroll = () => {
+        numbers.scrollTop = textarea.scrollTop;
+      };
+
+      textarea.addEventListener("scroll", syncScroll);
+      syncScroll();
+
+      return () => {
+        textarea.removeEventListener("scroll", syncScroll);
+      };
+    }, []);
+
+    useEffect(() => {
+      const textarea = textareaRef.current;
+      const numbers = numberRef.current;
+      if (!textarea || !numbers) return;
+      numbers.scrollTop = textarea.scrollTop;
+    }, [normalizedValue]);
+
+    return (
+      <div className={clsx("line-numbered", containerClassName)}>
+        <div
+          ref={numberRef}
+          aria-hidden="true"
+          className="line-numbered-gutter"
+        >
+          {lines}
+        </div>
+        <textarea
+          ref={mergedRef}
+          value={normalizedValue}
+          className={clsx("line-numbered-textarea", className)}
+          {...props}
+        />
+      </div>
+    );
+  },
+);
+
+LineNumberedTextarea.displayName = "LineNumberedTextarea";
 
 export default function Home() {
   const [input, setInput] = useState<string>(DEFAULTS.input);
@@ -287,10 +375,10 @@ export default function Home() {
               }}
               onDrop={onDrop}
             >
-              <textarea
+              <LineNumberedTextarea
                 ref={inputRef}
                 spellCheck={false}
-                className="field min-h-[260px] resize-y bg-transparent"
+                className="min-h-[260px] resize-y"
                 placeholder="Paste or type your lines here..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -321,9 +409,9 @@ export default function Home() {
                   </span>
                 </div>
               </div>
-              <textarea
+              <LineNumberedTextarea
                 spellCheck={false}
-                className="field min-h-[120px] resize-y"
+                className="min-h-[120px] resize-y"
                 placeholder={"Examples: ERROR\n^WARN\n\\.com$"}
                 value={needles}
                 onChange={(e) => setNeedles(e.target.value)}
@@ -440,10 +528,11 @@ export default function Home() {
             </div>
           </div>
 
-          <textarea
+          <LineNumberedTextarea
             ref={outputRef}
             spellCheck={false}
-            className="field min-h-[240px] resize-y bg-bg-3/60"
+            className="min-h-[240px] resize-y"
+            containerClassName="bg-bg-3/60"
             placeholder="Filtered output will appear here..."
             value={output}
             onChange={(e) => setOutput(e.target.value)}
