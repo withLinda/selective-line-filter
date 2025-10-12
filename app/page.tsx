@@ -113,16 +113,47 @@ const LineNumberedTextarea = forwardRef<HTMLTextAreaElement, LineNumberedTextare
     );
     const [lineHeight, setLineHeight] = useState<number>(24); // fallback; will measure
 
-    // Measure actual line-height from the textarea so math is exact
+    // Convert CSS length (px|rem|unitless) to pixels
+    const toPx = (value: string, ctx: HTMLElement): number | null => {
+      if (!value) return null;
+      const trimmed = value.trim();
+      if (trimmed.endsWith("px")) {
+        const n = parseFloat(trimmed);
+        return Number.isFinite(n) && n > 0 ? n : null;
+      }
+      if (trimmed.endsWith("rem")) {
+        const rem = parseFloat(trimmed);
+        if (!Number.isFinite(rem) || rem <= 0) return null;
+        const rootPx = parseFloat(getComputedStyle(document.documentElement).fontSize || "16");
+        const px = rem * (Number.isFinite(rootPx) && rootPx > 0 ? rootPx : 16);
+        return px;
+      }
+      // Unitless: treat as a multiplier of font-size
+      const unitless = parseFloat(trimmed);
+      if (Number.isFinite(unitless) && unitless > 0) {
+        const fontPx = parseFloat(getComputedStyle(ctx).fontSize || "16");
+        return unitless * (Number.isFinite(fontPx) && fontPx > 0 ? fontPx : 16);
+      }
+      return null;
+    };
+
+    // Measure actual line-height in px so scroll stays in sync
     useLayoutEffect(() => {
       const textarea = textareaRef.current;
       if (!textarea) return;
-      const lh = parseFloat(getComputedStyle(textarea).lineHeight || "0");
-      if (!Number.isNaN(lh) && lh > 0) setLineHeight(lh);
+      const raw = getComputedStyle(textarea).lineHeight || "";
+      let px = toPx(raw, textarea);
+      if (!px || px <= 0) {
+        // Fallback: measure a rendered gutter row (guaranteed pixel height)
+        const firstRow = numberRef.current?.querySelector(".line-numbered-row") as HTMLElement | null;
+        const h = firstRow?.getBoundingClientRect().height || 0;
+        if (h > 0) px = h;
+      }
+      if (px && px > 0) setLineHeight(px);
     }, []);
 
     // Keep the gutter perfectly in sync with the textarea scroll,
-    // and avoid virtualizing line numbers (render all of them).
+    // using a ratio of scrollable ranges so minor mismatches never desync.
     useEffect(() => {
       const textarea = textareaRef.current;
       const numbers = numberRef.current;
@@ -131,7 +162,10 @@ const LineNumberedTextarea = forwardRef<HTMLTextAreaElement, LineNumberedTextare
       const syncScroll = () => {
         cancelAnimationFrame(raf);
         raf = requestAnimationFrame(() => {
-          numbers.scrollTop = textarea.scrollTop;
+          const tMax = textarea.scrollHeight - textarea.clientHeight;
+          const nMax = numbers.scrollHeight - numbers.clientHeight;
+          const ratio = tMax > 0 ? nMax / tMax : 1;
+          numbers.scrollTop = Math.round(Math.min(nMax, Math.max(0, textarea.scrollTop * ratio)));
           updateContainerShadows();
         });
       };
