@@ -1,0 +1,14 @@
+node_modules
+.next
+out
+.turbo
+dist
+.env.local
+.env.development.local
+.env.production.local
+.env.test.local
+*.log
+package-lock.json
+pnpm-lock.yaml
+*.swp
+.DS_Store

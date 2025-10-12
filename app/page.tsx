@@ -1,0 +1,418 @@
+"use client";
+
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import type { DragEvent, KeyboardEvent } from "react";
+import { safeFilter, FilterOptions } from "@/lib/filter";
+import { clsx } from "clsx";
+import {
+  ClipboardPaste,
+  Upload,
+  Filter as FilterIcon,
+  Copy,
+  Download,
+  Trash2,
+  Regex,
+} from "lucide-react";
+
+type Persist = {
+  input: string;
+  needles: string;
+  opts: FilterOptions;
+};
+
+const DEFAULTS: Persist = {
+  input: `# Sample lines
+INFO 2025-01-01 App started
+DEBUG temp value=42
+WARN Disk space low
+ERROR unable to connect database
+user@example.com
+foo@gmail.com
+import os
+// comment
+https://example.com
+http://insecure.test
+NULL,42,ok`,
+  needles: `ERROR
+WARN`,
+  opts: {
+    mode: "keep",
+    useRegex: false,
+    caseSensitive: false,
+    wholeWord: false,
+  },
+};
+
+export default function Home() {
+  const [input, setInput] = useState<string>(DEFAULTS.input);
+  const [needles, setNeedles] = useState<string>(DEFAULTS.needles);
+  const [opts, setOpts] = useState<FilterOptions>(DEFAULTS.opts);
+  const [output, setOutput] = useState<string>("");
+  const [stats, setStats] = useState<{
+    total: number;
+    kept: number;
+    removed: number;
+    matched: number;
+    ms: number;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const outputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Load from localStorage
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("linefilter:v1");
+      if (raw) {
+        const parsed: Persist = JSON.parse(raw);
+        setInput(parsed.input ?? DEFAULTS.input);
+        setNeedles(parsed.needles ?? DEFAULTS.needles);
+        setOpts(parsed.opts ?? DEFAULTS.opts);
+      }
+    } catch {
+      // ignore corrupted payloads
+    }
+  }, []);
+
+  // Save to localStorage
+  useEffect(() => {
+    const data: Persist = { input, needles, opts };
+    try {
+      localStorage.setItem("linefilter:v1", JSON.stringify(data));
+    } catch {
+      // storage may be unavailable (e.g. private mode)
+    }
+  }, [input, needles, opts]);
+
+  const runFilter = useCallback(() => {
+    setError(null);
+    const t0 = performance.now();
+    const { result, error } = safeFilter(input, needles, opts);
+    const t1 = performance.now();
+    if (error) {
+      setError(error);
+      return;
+    }
+    if (result) {
+      setOutput(result.output);
+      setStats({
+        total: result.total,
+        kept: result.kept,
+        removed: result.removed,
+        matched: result.matchedLines,
+        ms: Math.max(0, t1 - t0),
+      });
+    }
+  }, [input, needles, opts]);
+
+  const onPaste = useCallback(async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) setInput(text);
+    } catch {
+      setError("Clipboard read failed. Use ⌘/Ctrl+V instead.");
+    }
+  }, []);
+
+  const onCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(output);
+    } catch {
+      setError("Clipboard write failed. Select and copy manually.");
+    }
+  }, [output]);
+
+  const onDownload = useCallback(() => {
+    const blob = new Blob([output], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "filtered.txt";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }, [output]);
+
+  const onUpload = useCallback(async (file: File) => {
+    const text = await file.text();
+    setInput(text);
+  }, []);
+
+  const onDrop = useCallback(
+    (e: DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      const f = e.dataTransfer.files?.[0];
+      if (f) onUpload(f);
+    },
+    [onUpload],
+  );
+
+  const onKey = useCallback(
+    (e: KeyboardEvent<HTMLElement>) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        runFilter();
+      }
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "c") {
+        e.preventDefault();
+        onCopy();
+      }
+      if (e.key === "Escape") {
+        setError(null);
+      }
+    },
+    [runFilter, onCopy],
+  );
+
+  const statChips = useMemo(
+    () => (
+      <div className="flex flex-wrap gap-2">
+        <span className="chip">Total: {stats?.total ?? 0}</span>
+        <span className="chip">Kept: {stats?.kept ?? 0}</span>
+        <span className="chip">Removed: {stats?.removed ?? 0}</span>
+        <span className="chip">Matched: {stats?.matched ?? 0}</span>
+        <span className="chip">
+          Time: {stats ? stats.ms.toFixed(1) : "0.0"} ms
+        </span>
+      </div>
+    ),
+    [stats],
+  );
+
+  return (
+    <main className="min-h-screen px-4 py-10 sm:px-6 lg:px-8" onKeyDown={onKey}>
+      <div className="mx-auto max-w-7xl space-y-8">
+        <header className="flex items-center justify-between">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold text-fg sm:text-3xl">
+              Line Filter
+            </h1>
+            <p className="text-sm text-fg-subtle">
+              Like a gatekeeper: each line shows its &quot;ID badge&quot; (the
+              needle). We let it in (Keep) or send it away (Remove).
+            </p>
+          </div>
+          <div className="hidden items-center gap-2 text-xs text-fg-subtle sm:flex">
+            <span className="chip">⌘/Ctrl + Enter → Filter</span>
+            <span className="chip">⌘/Ctrl + ⇧ + C → Copy</span>
+            <span className="chip">Esc → Clear error</span>
+          </div>
+        </header>
+
+        {/* Panels */}
+        <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {/* Input Panel */}
+          <div className="card p-4 sm:p-6">
+            <div className="mb-3 flex items-center justify-between">
+              <label className="label">Input Text</label>
+              <div className="flex items-center gap-2">
+                <button
+                  className="btn btn-ghost"
+                  onClick={onPaste}
+                  title="Paste from clipboard"
+                >
+                  <ClipboardPaste size={16} />
+                  Paste
+                </button>
+                <label
+                  className="btn btn-ghost cursor-pointer"
+                  title="Upload a text file"
+                >
+                  <Upload size={16} /> Upload
+                  <input
+                    type="file"
+                    accept=".txt,.log,.csv,text/plain"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) onUpload(f);
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div
+              className="rounded-2xl border border-bg-5/40 bg-bg-3/60 p-2"
+              onDragOver={(e) => {
+                e.preventDefault();
+              }}
+              onDrop={onDrop}
+            >
+              <textarea
+                ref={inputRef}
+                spellCheck={false}
+                className="field min-h-[260px] resize-y bg-transparent"
+                placeholder="Paste or type your lines here..."
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+              />
+              <p className="mt-1 text-[11px] text-fg-subtle">
+                Tip: Drag &amp; drop a .txt/.log/.csv file here.
+              </p>
+            </div>
+          </div>
+
+          {/* Needles & Options */}
+          <div className="card space-y-4 p-4 sm:p-6">
+            <div className="grid grid-cols-1 gap-3">
+              <div className="flex items-center justify-between">
+                <label className="label">
+                  Needles (one per line or comma-separated)
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="chip">
+                    {
+                      needles
+                        .split(/\r?\n|,/)
+                        .map((s) => s.trim())
+                        .filter(Boolean).length
+                    }{" "}
+                    needles
+                  </span>
+                </div>
+              </div>
+              <textarea
+                spellCheck={false}
+                className="field min-h-[120px] resize-y"
+                placeholder={"Examples: ERROR\n^WARN\n\\.com$"}
+                value={needles}
+                onChange={(e) => setNeedles(e.target.value)}
+              />
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <fieldset className="space-y-2">
+                <legend className="label mb-1">Mode</legend>
+                <div className="flex items-center gap-2">
+                  <button
+                    className={clsx(
+                      "btn",
+                      opts.mode === "keep" ? "btn-primary" : "btn-ghost",
+                    )}
+                    onClick={() => setOpts({ ...opts, mode: "keep" })}
+                  >
+                    Keep
+                  </button>
+                  <button
+                    className={clsx(
+                      "btn",
+                      opts.mode === "remove" ? "btn-danger" : "btn-ghost",
+                    )}
+                    onClick={() => setOpts({ ...opts, mode: "remove" })}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </fieldset>
+
+              <fieldset className="space-y-2">
+                <legend className="label mb-1">Pattern</legend>
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <label className="inline-flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={opts.useRegex}
+                      onChange={(e) =>
+                        setOpts({ ...opts, useRegex: e.target.checked })
+                      }
+                    />
+                    <span className="inline-flex items-center gap-1">
+                      Regex <Regex size={14} />
+                    </span>
+                  </label>
+                  <label className="inline-flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={opts.caseSensitive}
+                      onChange={(e) =>
+                        setOpts({ ...opts, caseSensitive: e.target.checked })
+                      }
+                    />
+                    <span>Case sensitive</span>
+                  </label>
+                  <label className="inline-flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={opts.wholeWord}
+                      onChange={(e) =>
+                        setOpts({ ...opts, wholeWord: e.target.checked })
+                      }
+                    />
+                    <span>Whole word</span>
+                  </label>
+                </div>
+              </fieldset>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              <button className="btn btn-primary" onClick={runFilter}>
+                <FilterIcon size={16} />
+                Filter
+              </button>
+              <button
+                className="btn btn-ghost"
+                onClick={() => {
+                  setInput("");
+                  setNeedles("");
+                  setOutput("");
+                  setStats(null);
+                  setError(null);
+                }}
+              >
+                <Trash2 size={16} />
+                Clear All
+              </button>
+              {error && <span className="text-sm text-accent-rose">{error}</span>}
+            </div>
+          </div>
+        </section>
+
+        {/* Results */}
+        <section className="card space-y-3 p-4 sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-medium text-fg">Results</h2>
+              {statChips}
+            </div>
+            <div className="flex items-center gap-2">
+              <button className="btn btn-ghost" onClick={onCopy}>
+                <Copy size={16} />
+                Copy
+              </button>
+              <button className="btn btn-ghost" onClick={onDownload}>
+                <Download size={16} />
+                Download
+              </button>
+            </div>
+          </div>
+
+          <textarea
+            ref={outputRef}
+            spellCheck={false}
+            className="field min-h-[240px] resize-y bg-bg-3/60"
+            placeholder="Filtered output will appear here..."
+            value={output}
+            onChange={(e) => setOutput(e.target.value)}
+          />
+        </section>
+
+        {/* Use cases quick reference */}
+        <section className="space-y-2 text-xs text-fg-subtle">
+          <p>
+            Use cases: logs (keep ERROR, remove DEBUG), emails (.com only or
+            remove gmail), code (extract imports / drop comments), CSV (remove
+            rows with NULL), URLs (keep https), configs (prefix keys), git diff
+            (only + or - lines), scraping (keyword filter), and more.
+          </p>
+        </section>
+      </div>
+    </main>
+  );
+}
+
