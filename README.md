@@ -2,6 +2,14 @@
 
 A web tool that helps you filter text by keeping or removing specific lines.
 
+<div align="center">
+
+### 🚀 **[Try the Live Demo →](https://line-filter.vercel.app/)** 🚀
+
+**No installation needed • Works in your browser • Privacy-first**
+
+</div>
+
 ![Selective Line Filter Screenshot](./selective-line-filter-app-screenshot.png)
 
 ## What Does It Do?
