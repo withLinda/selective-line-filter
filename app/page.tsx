@@ -49,6 +49,10 @@ WARN`,
   },
 };
 
+const SUPPORTED_FILE_TYPES = [".json", ".jsonl", ".txt", ".md"] as const;
+
+const friendlySupported = SUPPORTED_FILE_TYPES.map((ext) => ext.replace(".", "").toUpperCase());
+
 export default function Home() {
   const [input, setInput] = useState<string>(DEFAULTS.input);
   const [needles, setNeedles] = useState<string>(DEFAULTS.needles);
@@ -139,8 +143,20 @@ export default function Home() {
   }, [output]);
 
   const onUpload = useCallback(async (file: File) => {
+    const isSupported = SUPPORTED_FILE_TYPES.some((ext) =>
+      file.name.toLowerCase().endsWith(ext),
+    );
+
+    if (!isSupported && file.type !== "application/json" && file.type !== "text/plain") {
+      setError(
+        `Unsupported file format. Please upload one of: ${SUPPORTED_FILE_TYPES.join(", ")}.`,
+      );
+      return;
+    }
+
     const text = await file.text();
     setInput(text);
+    setError(null);
   }, []);
 
   const onDrop = useCallback(
@@ -187,20 +203,47 @@ export default function Home() {
   return (
     <main className="min-h-screen px-4 py-10 sm:px-6 lg:px-8" onKeyDown={onKey}>
       <div className="mx-auto max-w-7xl space-y-8">
-        <header className="flex items-center justify-between">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold text-fg sm:text-3xl">
-              Line Filter
-            </h1>
-            <p className="text-sm text-fg-subtle">
-              Like a gatekeeper: each line shows its &quot;ID badge&quot; (the
-              needle). We let it in (Keep) or send it away (Remove).
-            </p>
-          </div>
-          <div className="hidden items-center gap-2 text-xs text-fg-subtle sm:flex">
-            <span className="chip">⌘/Ctrl + Enter → Filter</span>
-            <span className="chip">⌘/Ctrl + ⇧ + C → Copy</span>
-            <span className="chip">Esc → Clear error</span>
+        <header className="hero">
+          <div className="hero-overlay" />
+          <div className="hero-content">
+            <div className="space-y-3">
+              <span className="badge-glass">Selective Line Filter</span>
+              <h1 className="text-3xl font-semibold text-fg sm:text-4xl">
+                Curate your text streams with artistry.
+              </h1>
+              <p className="max-w-xl text-sm text-fg-subtle sm:text-base">
+                Sculpt log files, prose, JSON, or markdown in a single sweep.
+                Paste, drop, or upload your files—then filter with precision and
+                see results shimmer in real time.
+              </p>
+              <div className="flex flex-wrap gap-2 text-[11px] text-fg-subtle">
+                <span className="chip">⌘/Ctrl + Enter → Filter</span>
+                <span className="chip">⌘/Ctrl + ⇧ + C → Copy</span>
+                <span className="chip">Esc → Clear error</span>
+              </div>
+            </div>
+            <div className="support-card">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-fg-subtle">
+                Supported uploads
+              </h2>
+              <ul className="mt-3 space-y-2 text-sm text-fg">
+                {friendlySupported.map((label) => (
+                  <li key={label} className="flex items-center gap-2">
+                    <span className="bullet" aria-hidden="true">
+                      ●
+                    </span>
+                    <span className="font-medium tracking-wide">.{label.toLowerCase()}</span>
+                    <span className="text-[11px] uppercase tracking-[0.3em] text-fg-subtle">
+                      {label}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 text-[12px] text-fg-muted">
+                Drag and drop or select any of these formats. Your text stays in
+                the browser—no uploads sent to servers.
+              </p>
+            </div>
           </div>
         </header>
 
@@ -226,7 +269,7 @@ export default function Home() {
                   <Upload size={16} /> Upload
                   <input
                     type="file"
-                    accept=".txt,.log,.csv,text/plain"
+                    accept={SUPPORTED_FILE_TYPES.join(",")}
                     className="hidden"
                     onChange={(e) => {
                       const f = e.target.files?.[0];
@@ -238,7 +281,7 @@ export default function Home() {
             </div>
 
             <div
-              className="rounded-2xl border border-bg-5/40 bg-bg-3/60 p-2"
+              className="dropzone"
               onDragOver={(e) => {
                 e.preventDefault();
               }}
@@ -252,8 +295,9 @@ export default function Home() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
               />
-              <p className="mt-1 text-[11px] text-fg-subtle">
-                Tip: Drag &amp; drop a .txt/.log/.csv file here.
+              <p className="mt-2 text-[11px] text-fg-subtle">
+                Tip: Drop files ending with {SUPPORTED_FILE_TYPES.join(", ")}
+                {" "}or paste raw text.
               </p>
             </div>
           </div>
@@ -368,7 +412,11 @@ export default function Home() {
                 <Trash2 size={16} />
                 Clear All
               </button>
-              {error && <span className="text-sm text-accent-rose">{error}</span>}
+              {error && (
+                <span className="text-sm text-accent-rose backdrop-blur-sm">
+                  {error}
+                </span>
+              )}
             </div>
           </div>
         </section>
