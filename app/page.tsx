@@ -69,6 +69,20 @@ const LineNumberedTextarea = forwardRef<HTMLTextAreaElement, LineNumberedTextare
   ({ className, containerClassName, value = "", ...props }, ref) => {
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
     const numberRef = useRef<HTMLDivElement | null>(null);
+    const containerRef = useRef<HTMLDivElement | null>(null);
+
+    const updateContainerShadows = useCallback(() => {
+      const textarea = textareaRef.current;
+      const container = containerRef.current;
+      if (!textarea || !container) return;
+
+      const atTop = textarea.scrollTop <= 0;
+      const atBottom =
+        textarea.scrollTop + textarea.clientHeight >= textarea.scrollHeight - 1;
+
+      container.dataset.shadowTop = atTop ? "off" : "on";
+      container.dataset.shadowBottom = atBottom ? "off" : "on";
+    }, []);
 
     const mergedRef = useCallback(
       (node: HTMLTextAreaElement | null) => {
@@ -102,6 +116,7 @@ const LineNumberedTextarea = forwardRef<HTMLTextAreaElement, LineNumberedTextare
 
       const syncScroll = () => {
         numbers.style.transform = `translateY(${-textarea.scrollTop}px)`;
+        updateContainerShadows();
       };
 
       textarea.addEventListener("scroll", syncScroll);
@@ -110,17 +125,45 @@ const LineNumberedTextarea = forwardRef<HTMLTextAreaElement, LineNumberedTextare
       return () => {
         textarea.removeEventListener("scroll", syncScroll);
       };
-    }, []);
+    }, [updateContainerShadows]);
 
     useEffect(() => {
       const textarea = textareaRef.current;
       const numbers = numberRef.current;
       if (!textarea || !numbers) return;
       numbers.style.transform = `translateY(${-textarea.scrollTop}px)`;
-    }, [normalizedValue]);
+      numbers.style.height = `${textarea.clientHeight}px`;
+      updateContainerShadows();
+    }, [normalizedValue, updateContainerShadows]);
+
+    useEffect(() => {
+      const textarea = textareaRef.current;
+      const numbers = numberRef.current;
+      if (!textarea || !numbers) return;
+
+      if (typeof window === "undefined" || typeof ResizeObserver === "undefined") {
+        numbers.style.height = `${textarea.clientHeight}px`;
+        updateContainerShadows();
+        return;
+      }
+
+      const syncHeight = () => {
+        numbers.style.height = `${textarea.clientHeight}px`;
+        updateContainerShadows();
+      };
+
+      syncHeight();
+
+      const observer = new ResizeObserver(syncHeight);
+      observer.observe(textarea);
+
+      return () => {
+        observer.disconnect();
+      };
+    }, [updateContainerShadows]);
 
     return (
-      <div className={clsx("line-numbered", containerClassName)}>
+      <div ref={containerRef} className={clsx("line-numbered", containerClassName)}>
         <div
           ref={numberRef}
           aria-hidden="true"
@@ -378,6 +421,7 @@ export default function Home() {
               <LineNumberedTextarea
                 ref={inputRef}
                 spellCheck={false}
+                containerClassName="textarea-balanced"
                 className="textarea-balanced"
                 placeholder="Paste or type your lines here..."
                 value={input}
@@ -411,6 +455,7 @@ export default function Home() {
               </div>
               <LineNumberedTextarea
                 spellCheck={false}
+                containerClassName="textarea-compact"
                 className="textarea-compact"
                 placeholder={"Examples: ERROR\n^WARN\n\\.com$"}
                 value={needles}
@@ -532,7 +577,7 @@ export default function Home() {
             ref={outputRef}
             spellCheck={false}
             className="textarea-balanced"
-            containerClassName="bg-bg-3/60"
+            containerClassName={clsx("textarea-balanced", "bg-bg-3/60")}
             placeholder="Filtered output will appear here..."
             value={output}
             onChange={(e) => setOutput(e.target.value)}
