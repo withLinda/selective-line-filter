@@ -4,6 +4,7 @@ import {
   forwardRef,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -68,6 +69,7 @@ type LineNumberedTextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & {
 const LineNumberedTextarea = forwardRef<HTMLTextAreaElement, LineNumberedTextareaProps>(
   ({ className, containerClassName, value = "", ...props }, ref) => {
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+    // Outer gutter: clipping container (fixed size, overflow hidden)
     const numberRef = useRef<HTMLDivElement | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -104,37 +106,50 @@ const LineNumberedTextarea = forwardRef<HTMLTextAreaElement, LineNumberedTextare
           : String(value);
     }, [value]);
 
-    const lines = useMemo(() => {
-      const count = Math.max(1, normalizedValue.split(/\r?\n/).length);
-      return Array.from({ length: count }, (_, idx) => `${idx + 1}`).join("\n");
-    }, [normalizedValue]);
+    // Virtualized line-number state
+    const totalLines = useMemo(
+      () => Math.max(1, normalizedValue.split(/\r?\n/).length),
+      [normalizedValue],
+    );
+    const [lineHeight, setLineHeight] = useState<number>(24); // fallback; will measure
 
+    // Measure actual line-height from the textarea so math is exact
+    useLayoutEffect(() => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+      const lh = parseFloat(getComputedStyle(textarea).lineHeight || "0");
+      if (!Number.isNaN(lh) && lh > 0) setLineHeight(lh);
+    }, []);
+
+    // Keep the gutter perfectly in sync with the textarea scroll,
+    // and avoid virtualizing line numbers (render all of them).
     useEffect(() => {
       const textarea = textareaRef.current;
       const numbers = numberRef.current;
       if (!textarea || !numbers) return;
-
+      let raf = 0;
       const syncScroll = () => {
-        numbers.style.transform = `translateY(${-textarea.scrollTop}px)`;
-        updateContainerShadows();
+        cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(() => {
+          numbers.scrollTop = textarea.scrollTop;
+          updateContainerShadows();
+        });
       };
-
       textarea.addEventListener("scroll", syncScroll);
       syncScroll();
-
       return () => {
         textarea.removeEventListener("scroll", syncScroll);
+        cancelAnimationFrame(raf);
       };
     }, [updateContainerShadows]);
 
     useEffect(() => {
       const textarea = textareaRef.current;
       const numbers = numberRef.current;
-      if (!textarea || !numbers) return;
-      numbers.style.transform = `translateY(${-textarea.scrollTop}px)`;
-      numbers.style.height = `${textarea.clientHeight}px`;
+      if (!textarea) return;
+      if (numbers) numbers.style.height = `${textarea.clientHeight}px`;
       updateContainerShadows();
-    }, [normalizedValue, updateContainerShadows]);
+    }, [normalizedValue, lineHeight, totalLines, updateContainerShadows]);
 
     useEffect(() => {
       const textarea = textareaRef.current;
@@ -142,6 +157,7 @@ const LineNumberedTextarea = forwardRef<HTMLTextAreaElement, LineNumberedTextare
       if (!textarea || !numbers) return;
 
       if (typeof window === "undefined" || typeof ResizeObserver === "undefined") {
+        // Keep the outer gutter matched to the textarea's visible height.
         numbers.style.height = `${textarea.clientHeight}px`;
         updateContainerShadows();
         return;
@@ -169,7 +185,16 @@ const LineNumberedTextarea = forwardRef<HTMLTextAreaElement, LineNumberedTextare
           aria-hidden="true"
           className="line-numbered-gutter"
         >
-          {lines}
+          <div
+            className="line-numbered-virtualizer"
+            style={{ height: totalLines * lineHeight }}
+          >
+            <div className="line-numbered-virtualizer-inner">
+              {Array.from({ length: totalLines }, (_, i) => (
+                <div key={i} className="line-numbered-row">{i + 1}</div>
+              ))}
+            </div>
+          </div>
         </div>
         <textarea
           ref={mergedRef}
@@ -597,4 +622,3 @@ export default function Home() {
     </main>
   );
 }
-

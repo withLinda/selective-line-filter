@@ -182,12 +182,28 @@ body {
 
 .line-numbered-gutter {
   @apply select-none border-r border-bg-5/40 bg-bg-2/80 px-3 py-2 text-right text-[11px] font-mono leading-6 text-fg-subtle;
-  white-space: pre;
   min-width: 2.75rem;
-  pointer-events: none;
-  will-change: transform;
-  overflow: hidden;
+  pointer-events: none; /* keep non-interactive */
+  overflow: auto;       /* allow scrolling so we can mirror textarea scrollTop */
   height: 100%;
+  scrollbar-width: none; /* hide scrollbar (Firefox) */
+}
+.line-numbered-gutter::-webkit-scrollbar { display: none; } /* hide scrollbar (WebKit) */
+
+/* Virtualized line-number gutter */
+.line-numbered-virtualizer {
+  position: relative;
+  width: 100%;
+}
+.line-numbered-virtualizer-inner {
+  position: absolute;
+  inset-inline: 0;
+  will-change: transform;
+}
+.line-numbered-row {
+  /* Must match textarea/gutter vertical rhythm (Tailwind leading-6 = 1.5rem) */
+  line-height: 1.5rem;
+  white-space: pre;
 }
 
 .line-numbered-textarea {
