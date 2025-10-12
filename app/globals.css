@@ -130,6 +130,22 @@ body {
   @apply inline-flex items-center gap-2 px-2.5 py-1 rounded-xl bg-bg-3 text-fg-subtle border border-bg-5/40 text-xs;
 }
 
+.line-numbered {
+  @apply flex w-full overflow-hidden rounded-2xl border border-bg-5/40 bg-bg-3/80 shadow-inset focus-within:border-accent-mint/40 focus-within:ring-2 focus-within:ring-accent-mint/60;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.line-numbered-gutter {
+  @apply select-none border-r border-bg-5/40 bg-bg-2/80 px-3 py-2 text-right text-[11px] font-mono leading-6 text-fg-subtle;
+  white-space: pre;
+  min-width: 2.75rem;
+  pointer-events: none;
+}
+
+.line-numbered-textarea {
+  @apply w-full flex-1 bg-transparent px-3 py-2 text-sm text-fg placeholder:text-fg-subtle outline-none leading-6;
+}
+
 .dropzone {
   @apply rounded-3xl border border-dashed border-accent-teal/40 bg-bg-3/70 p-3 transition-all duration-200 hover:border-accent-mint/60 hover:bg-bg-3/80 hover:shadow-soft backdrop-blur;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 30px 60px -45px rgba(0, 0, 0, 0.8);
