@@ -8,10 +8,12 @@ dist
 .env.production.local
 .env.test.local
 *.log
-package-lock.json
 pnpm-lock.yaml
 *.swp
 .DS_Store
 .idea/
 repomix-output.xml
 tsconfig.tsbuildinfo
+.test-build/
+.playwright-cli/
+output/playwright/

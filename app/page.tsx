@@ -1,658 +1,217 @@
 "use client";
 
-import {
-  forwardRef,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import type {
-  DragEvent,
-  KeyboardEvent,
-  MutableRefObject,
-  TextareaHTMLAttributes,
-} from "react";
-import { safeFilter, FilterOptions } from "@/lib/filter";
-import { clsx } from "clsx";
-import {
-  ClipboardPaste,
-  Upload,
-  Filter as FilterIcon,
-  Copy,
-  Download,
-  Trash2,
-  Regex,
-} from "lucide-react";
+import { useCallback, useRef, useState, type KeyboardEvent } from "react";
+import { ArrowRight, Check, ClipboardPaste, Copy, Download, ListFilter, RotateCcw, Upload, X } from "lucide-react";
+import { TextEditor } from "./components/text-editor";
+import { useWorkspace } from "./use-workspace";
+import type { Tool } from "@/lib/workspace";
+import { ThemePicker } from "./components/theme-picker";
+import { ExamplesPicker } from "./components/examples-picker";
 
-type Persist = {
-  input: string;
-  needles: string;
-  opts: FilterOptions;
-};
-
-const DEFAULTS: Persist = {
-  input: `# Sample lines
-INFO 2025-01-01 App started
-DEBUG temp value=42
-WARN Disk space low
-ERROR unable to connect database
-user@example.com
-foo@gmail.com
-import os
-// comment
-https://example.com
-http://insecure.test
-NULL,42,ok`,
-  needles: `ERROR
-WARN`,
-  opts: {
-    mode: "keep",
-    useRegex: false,
-    caseSensitive: false,
-    wholeWord: false,
-  },
-};
-
-const SUPPORTED_FILE_TYPES = [".json", ".jsonl", ".txt", ".md"] as const;
-
-const friendlySupported = SUPPORTED_FILE_TYPES.map((ext) =>
-  ext.replace(".", "").toUpperCase(),
-);
-
-type LineNumberedTextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & {
-  containerClassName?: string;
-};
-
-const LineNumberedTextarea = forwardRef<HTMLTextAreaElement, LineNumberedTextareaProps>(
-  ({ className, containerClassName, value = "", ...props }, ref) => {
-    const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-    // Outer gutter: clipping container (fixed size, overflow hidden)
-    const numberRef = useRef<HTMLDivElement | null>(null);
-    const containerRef = useRef<HTMLDivElement | null>(null);
-
-    const updateContainerShadows = useCallback(() => {
-      const textarea = textareaRef.current;
-      const container = containerRef.current;
-      if (!textarea || !container) return;
-
-      const atTop = textarea.scrollTop <= 0;
-      const atBottom =
-        textarea.scrollTop + textarea.clientHeight >= textarea.scrollHeight - 1;
-
-      container.dataset.shadowTop = atTop ? "off" : "on";
-      container.dataset.shadowBottom = atBottom ? "off" : "on";
-    }, []);
-
-    const mergedRef = useCallback(
-      (node: HTMLTextAreaElement | null) => {
-        textareaRef.current = node;
-        if (typeof ref === "function") {
-          ref(node);
-        } else if (ref) {
-          (ref as MutableRefObject<HTMLTextAreaElement | null>).current = node;
-        }
-      },
-      [ref],
-    );
-
-    const normalizedValue = useMemo(() => {
-      return Array.isArray(value)
-        ? value.join("\n")
-        : value === undefined || value === null
-          ? ""
-          : String(value);
-    }, [value]);
-
-    // Virtualized line-number state
-    const totalLines = useMemo(
-      () => Math.max(1, normalizedValue.split(/\r?\n/).length),
-      [normalizedValue],
-    );
-    const [lineHeight, setLineHeight] = useState<number>(24); // fallback; will measure
-
-    // Convert CSS length (px|rem|unitless) to pixels
-    const toPx = (value: string, ctx: HTMLElement): number | null => {
-      if (!value) return null;
-      const trimmed = value.trim();
-      if (trimmed.endsWith("px")) {
-        const n = parseFloat(trimmed);
-        return Number.isFinite(n) && n > 0 ? n : null;
-      }
-      if (trimmed.endsWith("rem")) {
-        const rem = parseFloat(trimmed);
-        if (!Number.isFinite(rem) || rem <= 0) return null;
-        const rootPx = parseFloat(getComputedStyle(document.documentElement).fontSize || "16");
-        const px = rem * (Number.isFinite(rootPx) && rootPx > 0 ? rootPx : 16);
-        return px;
-      }
-      // Unitless: treat as a multiplier of font-size
-      const unitless = parseFloat(trimmed);
-      if (Number.isFinite(unitless) && unitless > 0) {
-        const fontPx = parseFloat(getComputedStyle(ctx).fontSize || "16");
-        return unitless * (Number.isFinite(fontPx) && fontPx > 0 ? fontPx : 16);
-      }
-      return null;
-    };
-
-    // Measure actual line-height in px so scroll stays in sync
-    useLayoutEffect(() => {
-      const textarea = textareaRef.current;
-      if (!textarea) return;
-      const raw = getComputedStyle(textarea).lineHeight || "";
-      let px = toPx(raw, textarea);
-      if (!px || px <= 0) {
-        // Fallback: measure a rendered gutter row (guaranteed pixel height)
-        const firstRow = numberRef.current?.querySelector(".line-numbered-row") as HTMLElement | null;
-        const h = firstRow?.getBoundingClientRect().height || 0;
-        if (h > 0) px = h;
-      }
-      if (px && px > 0) setLineHeight(px);
-    }, []);
-
-    // Keep the gutter perfectly in sync with the textarea scroll,
-    // using a ratio of scrollable ranges so minor mismatches never desync.
-    useEffect(() => {
-      const textarea = textareaRef.current;
-      const numbers = numberRef.current;
-      if (!textarea || !numbers) return;
-      let raf = 0;
-      const syncScroll = () => {
-        cancelAnimationFrame(raf);
-        raf = requestAnimationFrame(() => {
-          const tMax = textarea.scrollHeight - textarea.clientHeight;
-          const nMax = numbers.scrollHeight - numbers.clientHeight;
-          const ratio = tMax > 0 ? nMax / tMax : 1;
-          numbers.scrollTop = Math.round(Math.min(nMax, Math.max(0, textarea.scrollTop * ratio)));
-          updateContainerShadows();
-        });
-      };
-      textarea.addEventListener("scroll", syncScroll);
-      syncScroll();
-      return () => {
-        textarea.removeEventListener("scroll", syncScroll);
-        cancelAnimationFrame(raf);
-      };
-    }, [updateContainerShadows]);
-
-    useEffect(() => {
-      const textarea = textareaRef.current;
-      const numbers = numberRef.current;
-      if (!textarea) return;
-      if (numbers) numbers.style.height = `${textarea.clientHeight}px`;
-      updateContainerShadows();
-    }, [normalizedValue, lineHeight, totalLines, updateContainerShadows]);
-
-    useEffect(() => {
-      const textarea = textareaRef.current;
-      const numbers = numberRef.current;
-      if (!textarea || !numbers) return;
-
-      if (typeof window === "undefined" || typeof ResizeObserver === "undefined") {
-        // Keep the outer gutter matched to the textarea's visible height.
-        numbers.style.height = `${textarea.clientHeight}px`;
-        updateContainerShadows();
-        return;
-      }
-
-      const syncHeight = () => {
-        numbers.style.height = `${textarea.clientHeight}px`;
-        updateContainerShadows();
-      };
-
-      syncHeight();
-
-      const observer = new ResizeObserver(syncHeight);
-      observer.observe(textarea);
-
-      return () => {
-        observer.disconnect();
-      };
-    }, [updateContainerShadows]);
-
-    return (
-      <div ref={containerRef} className={clsx("line-numbered", containerClassName)}>
-        <div
-          ref={numberRef}
-          aria-hidden="true"
-          className="line-numbered-gutter"
-        >
-          <div
-            className="line-numbered-virtualizer"
-            style={{ height: totalLines * lineHeight }}
-          >
-            <div className="line-numbered-virtualizer-inner">
-              {Array.from({ length: totalLines }, (_, i) => (
-                <div key={i} className="line-numbered-row">{i + 1}</div>
-              ))}
-            </div>
-          </div>
-        </div>
-        <textarea
-          ref={mergedRef}
-          value={normalizedValue}
-          className={clsx("line-numbered-textarea", className)}
-          {...props}
-        />
-      </div>
-    );
-  },
-);
-
-LineNumberedTextarea.displayName = "LineNumberedTextarea";
+const FILE_TYPES = [".txt", ".json", ".jsonl", ".md"];
+const countLines = (text: string) => text ? text.split(/\r\n|\r|\n/).length : 0;
+const linesLabel = (count: number) => `${count.toLocaleString()} ${count === 1 ? "line" : "lines"}`;
 
 export default function Home() {
-  const [input, setInput] = useState<string>(DEFAULTS.input);
-  const [needles, setNeedles] = useState<string>(DEFAULTS.needles);
-  const [opts, setOpts] = useState<FilterOptions>(DEFAULTS.opts);
-  const [output, setOutput] = useState<string>("");
-  const [stats, setStats] = useState<{
-    total: number;
-    kept: number;
-    removed: number;
-    matched: number;
-    ms: number;
-  } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const inputRef = useRef<HTMLTextAreaElement | null>(null);
-  const outputRef = useRef<HTMLTextAreaElement | null>(null);
+  const { workspace, update, ready, result, busy, error, setError, run, clear, undo, canUndo, undoKind, loadExample, editOutput, revision } = useWorkspace();
+  const { input, needles, opts, replace, tool } = workspace;
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [copied, setCopied] = useState<{ result: typeof result; revision: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const importId = useRef(0);
+  const canRun = ready && !!input && (tool === "filter" || !!replace.find);
+  const hasContent = !!(input || needles || replace.find || replace.replacement || result);
 
-  // Load from localStorage
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("linefilter:v1");
-      if (raw) {
-        const parsed: Persist = JSON.parse(raw);
-        setInput(parsed.input ?? DEFAULTS.input);
-        setNeedles(parsed.needles ?? DEFAULTS.needles);
-        setOpts(parsed.opts ?? DEFAULTS.opts);
-      }
-    } catch {
-      // ignore corrupted payloads
-    }
-  }, []);
-
-  // Save to localStorage
-  useEffect(() => {
-    const data: Persist = { input, needles, opts };
-    try {
-      localStorage.setItem("linefilter:v1", JSON.stringify(data));
-    } catch {
-      // storage may be unavailable (e.g. private mode)
-    }
-  }, [input, needles, opts]);
-
-  const runFilter = useCallback(() => {
-    setError(null);
-    const t0 = performance.now();
-    const { result, error } = safeFilter(input, needles, opts);
-    const t1 = performance.now();
-    if (error) {
-      setError(error);
-      return;
-    }
-    if (result) {
-      setOutput(result.output);
-      setStats({
-        total: result.total,
-        kept: result.kept,
-        removed: result.removed,
-        matched: result.matchedLines,
-        ms: Math.max(0, t1 - t0),
-      });
-    }
-  }, [input, needles, opts]);
-
-  const onPaste = useCallback(async () => {
+  const paste = async () => {
+    const version = revision.current;
+    const id = ++importId.current;
     try {
       const text = await navigator.clipboard.readText();
-      if (text) setInput(text);
+      if (version !== revision.current || id !== importId.current) return;
+      update({ input: text });
+      inputRef.current?.focus();
     } catch {
-      setError("Clipboard read failed. Use ⌘/Ctrl+V instead.");
+      if (version === revision.current && id === importId.current) setError("Clipboard unavailable. Paste directly into Input with ⌘V or Ctrl+V.");
     }
-  }, []);
+  };
 
-  const onCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(output);
-    } catch {
-      setError("Clipboard write failed. Select and copy manually.");
-    }
-  }, [output]);
-
-  const onDownload = useCallback(() => {
-    const blob = new Blob([output], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "filtered.txt";
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 0);
-  }, [output]);
-
-  const onUpload = useCallback(async (file: File) => {
-    const isSupported = SUPPORTED_FILE_TYPES.some((ext) =>
-      file.name.toLowerCase().endsWith(ext),
-    );
-
-    if (!isSupported && file.type !== "application/json" && file.type !== "text/plain") {
-      setError(
-        `Unsupported file format. Please upload one of: ${SUPPORTED_FILE_TYPES.join(", ")}.`,
-      );
+  const upload = async (file: File) => {
+    const id = ++importId.current;
+    const version = revision.current;
+    if (!FILE_TYPES.some((extension) => file.name.toLowerCase().endsWith(extension)) && !["text/plain", "application/json"].includes(file.type)) {
+      setError("Choose a .txt, .json, .jsonl, or .md file.");
       return;
     }
+    try {
+      const text = await file.text();
+      if (version !== revision.current || id !== importId.current) return;
+      update({ input: text });
+      inputRef.current?.focus();
+    } catch {
+      if (version === revision.current && id === importId.current) setError("Could not read this file. Please try again.");
+    }
+  };
 
-    const text = await file.text();
-    setInput(text);
-    setError(null);
-  }, []);
-
-  const onDrop = useCallback(
-    (e: DragEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      const f = e.dataTransfer.files?.[0];
-      if (f) onUpload(f);
-    },
-    [onUpload],
-  );
-
-  const onKey = useCallback(
-    (e: KeyboardEvent<HTMLElement>) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-        e.preventDefault();
-        runFilter();
-      }
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "c") {
-        e.preventDefault();
-        onCopy();
-      }
-      if (e.key === "Escape") {
+  const copy = useCallback(async () => {
+    if (!result) return;
+    setCopied(null);
+    const version = revision.current;
+    try {
+      await navigator.clipboard.writeText(result.output);
+      if (version === revision.current) {
+        setCopied({ result, revision: version });
         setError(null);
       }
-    },
-    [runFilter, onCopy],
-  );
+    } catch {
+      if (version === revision.current) setError("Clipboard unavailable. Select the output and copy it directly.");
+    }
+  }, [result, revision, setError]);
 
-  const statChips = useMemo(
-    () => (
-      <div className="flex flex-wrap gap-2">
-        <span className="chip">Total: {stats?.total ?? 0}</span>
-        <span className="chip">Kept: {stats?.kept ?? 0}</span>
-        <span className="chip">Removed: {stats?.removed ?? 0}</span>
-        <span className="chip">Matched: {stats?.matched ?? 0}</span>
-        <span className="chip">
-          Time: {stats ? stats.ms.toFixed(1) : "0.0"} ms
-        </span>
-      </div>
-    ),
-    [stats],
-  );
+  const download = () => {
+    if (!result) return;
+    const url = URL.createObjectURL(new Blob([result.output], { type: "text/plain;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = result.tool === "filter" ? "filtered.txt" : "replaced.txt";
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.nativeEvent.isComposing) return;
+    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+      event.preventDefault();
+      run();
+    } else if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "c" && result) {
+      event.preventDefault();
+      void copy();
+    } else if (event.key === "Escape") {
+      setError(null);
+    }
+  };
+
+  const switchTool = (next: Tool) => {
+    if (next !== tool) update({ tool: next });
+  };
+
+  const summary = result?.edited
+    ? "Edited"
+    : result?.tool === "replace"
+      ? `${result.replacements.toLocaleString()} ${result.replacements === 1 ? "replacement" : "replacements"}`
+      : result?.tool === "filter"
+        ? `${result.stats.kept.toLocaleString()} of ${result.stats.total.toLocaleString()} lines`
+        : "";
+  const isCopied = result !== null && copied?.result === result && copied.revision === revision.current;
 
   return (
-    <main className="min-h-screen px-4 py-10 sm:px-6 lg:px-8" onKeyDown={onKey}>
-      <div className="mx-auto max-w-7xl space-y-8">
-        <header className="hero">
-          <div className="hero-overlay" />
-          <div className="hero-content">
-            <div className="space-y-3">
-              <span className="badge-glass">Selective Line Filter</span>
-              <h1 className="text-3xl font-semibold text-fg sm:text-4xl">
-                Curate your text streams with artistry.
-              </h1>
-              <p className="max-w-xl text-sm text-fg-subtle sm:text-base">
-                Sculpt log files, prose, JSON, or markdown in a single sweep.
-                Paste, drop, or upload your files—then filter with precision and
-                see results shimmer in real time.
-              </p>
-              <div className="flex flex-wrap gap-2 text-[11px] text-fg-subtle">
-                <span className="chip">⌘/Ctrl + Enter → Filter</span>
-                <span className="chip">⌘/Ctrl + ⇧ + C → Copy</span>
-                <span className="chip">Esc → Clear error</span>
+    <main className="app-shell" onKeyDown={onKeyDown}>
+      <header className="app-header">
+        <h1><ListFilter size={20} aria-hidden="true" />Line Filter</h1>
+        <div className="tool-switch" role="group" aria-label="Text tool">
+          <button aria-pressed={tool === "filter"} onClick={() => switchTool("filter")} disabled={!ready}>Filter</button>
+          <button aria-pressed={tool === "replace"} onClick={() => switchTool("replace")} disabled={!ready}>Replace</button>
+        </div>
+        <div className="header-actions">
+        <ThemePicker />
+        <button className="button quiet clear-button" disabled={!ready || (!canUndo && !hasContent)} onClick={() => { setCopied(null); canUndo ? undo() : clear(); }}>
+          {canUndo ? <RotateCcw size={15} aria-hidden="true" /> : <X size={15} aria-hidden="true" />}
+          {canUndo ? `Undo ${undoKind}` : "Clear all"}
+        </button>
+        </div>
+      </header>
+
+      <section className="workspace" aria-label={tool === "filter" ? "Filter lines" : "Replace text"}>
+        <form className="task-controls" onSubmit={(event) => { event.preventDefault(); setCopied(null); run(); }}>
+          {tool === "filter" ? (
+            <div className="filter-fields">
+              <label className="field-label" htmlFor="filter-find">
+                Find
+                <textarea id="filter-find" className="search-field" rows={2} value={needles} spellCheck={false} disabled={!ready} title="Separate search terms with commas or new lines" onChange={(event) => update({ needles: event.target.value })} />
+              </label>
+              <div className="mode-switch" role="group" aria-label="Matching lines">
+                <button type="button" aria-pressed={opts.mode === "keep"} disabled={!ready} onClick={() => update({ opts: { ...opts, mode: "keep" } })}>Keep</button>
+                <button type="button" aria-pressed={opts.mode === "remove"} disabled={!ready} onClick={() => update({ opts: { ...opts, mode: "remove" } })}>Remove</button>
               </div>
             </div>
-            <div className="support-card">
-              <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-fg-subtle">
-                Supported uploads
-              </h2>
-              <ul className="mt-3 space-y-2 text-sm text-fg">
-                {friendlySupported.map((label) => (
-                  <li key={label} className="flex items-center gap-2">
-                    <span className="bullet" aria-hidden="true">
-                      ●
-                    </span>
-                    <span className="font-medium tracking-wide">.{label.toLowerCase()}</span>
-                    <span className="text-[11px] uppercase tracking-[0.3em] text-fg-subtle">
-                      {label}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-3 text-[12px] text-fg-muted">
-                Drag and drop or select any of these formats. Your text stays in
-                the browser—no uploads sent to servers.
-              </p>
+          ) : (
+            <div className="replace-fields">
+              <label className="field-label" htmlFor="replace-find">
+                Find
+                <textarea id="replace-find" className="search-field" rows={2} value={replace.find} spellCheck={false} disabled={!ready} onChange={(event) => update({ replace: { ...replace, find: event.target.value } })} />
+              </label>
+              <label className="field-label" htmlFor="replace-with">
+                Replace with
+                <textarea id="replace-with" className="search-field" rows={2} value={replace.replacement} spellCheck={false} disabled={!ready} onChange={(event) => update({ replace: { ...replace, replacement: event.target.value } })} />
+              </label>
             </div>
+          )}
+          <div className="control-actions">
+            <div className="match-options">
+              <label><input type="checkbox" disabled={!ready} checked={tool === "filter" ? opts.caseSensitive : replace.caseSensitive} onChange={(event) => update(tool === "filter" ? { opts: { ...opts, caseSensitive: event.target.checked } } : { replace: { ...replace, caseSensitive: event.target.checked } })} />Match case</label>
+              {tool === "filter" && <>
+                <label><input type="checkbox" disabled={!ready} checked={opts.wholeWord} onChange={(event) => update({ opts: { ...opts, wholeWord: event.target.checked } })} />Whole word</label>
+                <label><input type="checkbox" disabled={!ready} checked={opts.useRegex} onChange={(event) => update({ opts: { ...opts, useRegex: event.target.checked } })} />Regex</label>
+              </>}
+            </div>
+            <ExamplesPicker tool={tool} disabled={!ready} onSelect={(example) => { setCopied(null); loadExample(example); }} />
+            <button type="submit" className="button primary" disabled={!canRun || busy} title="Run · ⌘Enter / Ctrl+Enter" aria-keyshortcuts="Meta+Enter Control+Enter">
+              {busy ? "Processing…" : tool === "filter" ? "Filter lines" : "Replace all"}
+              <ArrowRight size={16} aria-hidden="true" />
+            </button>
           </div>
-        </header>
+        </form>
 
-        {/* Panels */}
-        <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {/* Input Panel */}
-          <div className="card p-4 sm:p-6">
-            <div className="mb-3 flex items-center justify-between">
-              <label className="label">Input Text</label>
-              <div className="flex items-center gap-2">
-                <button
-                  className="btn btn-ghost"
-                  onClick={onPaste}
-                  title="Paste from clipboard"
-                >
-                  <ClipboardPaste size={16} />
-                  Paste
+        {error && <div className="error-message" role="alert"><span>{error}</span><button className="icon-button" aria-label="Dismiss error" onClick={() => setError(null)}><X size={16} aria-hidden="true" /></button></div>}
+
+        <div className="editors">
+          <section className={`editor-pane${dragging ? " is-dragging" : ""}`} aria-labelledby="input-label"
+            onDragOver={(event) => { if (Array.from(event.dataTransfer.types).includes("Files")) { event.preventDefault(); setDragging(true); } }}
+            onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false); }}
+            onDrop={(event) => { event.preventDefault(); setDragging(false); const file = event.dataTransfer.files[0]; if (file && ready) void upload(file); }}>
+            <div className="pane-header">
+              <label id="input-label" htmlFor="input-text">Input</label>
+              <div className="pane-actions">
+                <button className="button quiet" disabled={!ready} onClick={paste}><ClipboardPaste size={15} aria-hidden="true" />Paste</button>
+                <button className="icon-button" disabled={!ready} aria-label="Upload file" title="Upload .txt, .json, .jsonl, or .md" onClick={() => fileRef.current?.click()}><Upload size={16} aria-hidden="true" /></button>
+                <input ref={fileRef} type="file" accept={FILE_TYPES.join(",")} hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); event.target.value = ""; }} />
+              </div>
+            </div>
+            <TextEditor id="input-text" ref={inputRef} value={input} disabled={!ready} onChange={(event) => update({ input: event.target.value })} />
+            <div className="pane-footer"><span>{linesLabel(countLines(input))}</span></div>
+          </section>
+
+          <section className="editor-pane output-pane" aria-labelledby="output-label" aria-busy={busy}>
+            <div className="pane-header">
+              <label id="output-label" htmlFor="output-text">Output</label>
+              <div className="pane-actions">
+                <button className="button quiet" disabled={!result} onClick={copy} title="Copy output · ⌘⇧C / Ctrl+Shift+C" aria-keyshortcuts="Meta+Shift+C Control+Shift+C">
+                  {isCopied ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}{isCopied ? "Copied" : "Copy"}
                 </button>
-                <label
-                  className="btn btn-ghost cursor-pointer"
-                  title="Upload a text file"
-                >
-                  <Upload size={16} /> Upload
-                  <input
-                    type="file"
-                    accept={SUPPORTED_FILE_TYPES.join(",")}
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) onUpload(f);
-                    }}
-                  />
-                </label>
+                <button className="icon-button" disabled={!result} onClick={download} aria-label="Download output" title="Download output"><Download size={16} aria-hidden="true" /></button>
               </div>
             </div>
-
-            <div
-              className="dropzone"
-              onDragOver={(e) => {
-                e.preventDefault();
-              }}
-              onDrop={onDrop}
-            >
-              <LineNumberedTextarea
-                ref={inputRef}
-                spellCheck={false}
-                containerClassName="textarea-balanced"
-                className="textarea-balanced"
-                placeholder="Paste or type your lines here..."
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-              />
-              <p className="mt-2 text-[11px] text-fg-subtle">
-                Tip: Drop files ending with {SUPPORTED_FILE_TYPES.join(", ")}
-                {" "}or paste raw text.
-              </p>
+            <TextEditor id="output-text" value={result?.output ?? ""} readOnly={!result} onChange={(event) => { setCopied(null); editOutput(event.target.value); }} />
+            <div className="pane-footer">
+              <span role="status">{busy ? "Processing…" : summary}</span>
+              {result?.edited && <span>{linesLabel(countLines(result.output))}</span>}
+              {result && !result.edited && <details className="result-details">
+                <summary aria-label="Result details">{linesLabel(countLines(result.output))}</summary>
+                <dl>
+                  {result.tool === "filter" && <>
+                    <div><dt>Original lines</dt><dd>{result.stats.total.toLocaleString()}</dd></div>
+                    <div><dt>Matched</dt><dd>{result.stats.matchedLines.toLocaleString()}</dd></div>
+                    <div><dt>Kept</dt><dd>{result.stats.kept.toLocaleString()}</dd></div>
+                    <div><dt>Removed</dt><dd>{result.stats.removed.toLocaleString()}</dd></div>
+                  </>}
+                  <div><dt>Processing</dt><dd>{result.ms.toFixed(1)} ms</dd></div>
+                </dl>
+              </details>}
             </div>
-          </div>
-
-          {/* Needles & Options */}
-          <div className="card space-y-4 p-4 sm:p-6">
-            <div className="grid grid-cols-1 gap-3">
-              <div className="flex items-center justify-between">
-                <label className="label">
-                  Needles (one per line or comma-separated)
-                </label>
-                <div className="flex items-center gap-2">
-                  <span className="chip">
-                    {
-                      needles
-                        .split(/\r?\n|,/)
-                        .map((s) => s.trim())
-                        .filter(Boolean).length
-                    }{" "}
-                    needles
-                  </span>
-                </div>
-              </div>
-              <LineNumberedTextarea
-                spellCheck={false}
-                containerClassName="textarea-compact"
-                className="textarea-compact"
-                placeholder={"Examples: ERROR\n^WARN\n\\.com$"}
-                value={needles}
-                onChange={(e) => setNeedles(e.target.value)}
-              />
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <fieldset className="space-y-2">
-                <legend className="label mb-1">Mode</legend>
-                <div className="flex items-center gap-2">
-                  <button
-                    className={clsx(
-                      "btn",
-                      opts.mode === "keep" ? "btn-primary" : "btn-ghost",
-                    )}
-                    onClick={() => setOpts({ ...opts, mode: "keep" })}
-                  >
-                    Keep
-                  </button>
-                  <button
-                    className={clsx(
-                      "btn",
-                      opts.mode === "remove" ? "btn-danger" : "btn-ghost",
-                    )}
-                    onClick={() => setOpts({ ...opts, mode: "remove" })}
-                  >
-                    Remove
-                  </button>
-                </div>
-              </fieldset>
-
-              <fieldset className="space-y-2">
-                <legend className="label mb-1">Pattern</legend>
-                <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <label className="inline-flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={opts.useRegex}
-                      onChange={(e) =>
-                        setOpts({ ...opts, useRegex: e.target.checked })
-                      }
-                    />
-                    <span className="inline-flex items-center gap-1">
-                      Regex <Regex size={14} />
-                    </span>
-                  </label>
-                  <label className="inline-flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={opts.caseSensitive}
-                      onChange={(e) =>
-                        setOpts({ ...opts, caseSensitive: e.target.checked })
-                      }
-                    />
-                    <span>Case sensitive</span>
-                  </label>
-                  <label className="inline-flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={opts.wholeWord}
-                      onChange={(e) =>
-                        setOpts({ ...opts, wholeWord: e.target.checked })
-                      }
-                    />
-                    <span>Whole word</span>
-                  </label>
-                </div>
-              </fieldset>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 pt-2">
-              <button className="btn btn-primary" onClick={runFilter}>
-                <FilterIcon size={16} />
-                Filter
-              </button>
-              <button
-                className="btn btn-ghost"
-                onClick={() => {
-                  setInput("");
-                  setNeedles("");
-                  setOutput("");
-                  setStats(null);
-                  setError(null);
-                }}
-              >
-                <Trash2 size={16} />
-                Clear All
-              </button>
-              {error && (
-                <span className="text-sm text-accent-rose backdrop-blur-sm">
-                  {error}
-                </span>
-              )}
-            </div>
-          </div>
-        </section>
-
-        {/* Results */}
-        <section className="card space-y-3 p-4 sm:p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <h2 className="text-lg font-medium text-fg">Results</h2>
-              {statChips}
-            </div>
-            <div className="flex items-center gap-2">
-              <button className="btn btn-ghost" onClick={onCopy}>
-                <Copy size={16} />
-                Copy
-              </button>
-              <button className="btn btn-ghost" onClick={onDownload}>
-                <Download size={16} />
-                Download
-              </button>
-            </div>
-          </div>
-
-          <LineNumberedTextarea
-            ref={outputRef}
-            spellCheck={false}
-            className="textarea-balanced"
-            containerClassName={clsx("textarea-balanced", "bg-bg-3/60")}
-            placeholder="Filtered output will appear here..."
-            value={output}
-            onChange={(e) => setOutput(e.target.value)}
-          />
-        </section>
-
-        {/* Use cases quick reference */}
-        <section className="space-y-2 text-xs text-fg-subtle">
-          <p>
-            Use cases: logs (keep ERROR, remove DEBUG), emails (.com only or
-            remove gmail), code (extract imports / drop comments), CSV (remove
-            rows with NULL), URLs (keep https), configs (prefix keys), git diff
-            (only + or - lines), scraping (keyword filter), and more.
-          </p>
-        </section>
-      </div>
+          </section>
+        </div>
+      </section>
+      <span className="sr-only" role="status">{isCopied ? "Output copied to clipboard." : ""}</span>
     </main>
   );
 }

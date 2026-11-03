@@ -1,177 +1,45 @@
-# Selective Line Filter
+# Line Filter
 
-A web tool that helps you filter text by keeping or removing specific lines.
+**Find the lines that matter. Fix repeated text in one pass.**
 
-<div align="center">
+Clean up logs, lists, and copied text without editing each line by hand. Line Filter keeps or removes matching lines and replaces text throughout a document—all in your browser.
 
-### 🚀 **[Try the Live Demo →](https://line-filter.vercel.app/)** 🚀
+**[Try Line Filter →](https://line-filter.vercel.app/)** · No installation or account needed.
 
-**No installation needed • Works in your browser • Privacy-first**
+![Line Filter keeping warnings and errors from a log, with input and output side by side](./selective-line-filter-app-screenshot.png)
 
-</div>
+## How to use it
 
-![Selective Line Filter Screenshot](./selective-line-filter-app-screenshot.png)
+1. **Add your text.** Paste or type into **Input**, or upload/drop a `.txt`, `.json`, `.jsonl`, or `.md` file.
+2. **Choose your tool.** Use **Filter** to keep or remove lines, or **Replace** to change text everywhere it appears.
+3. **Use the result.** Review and edit **Output**, then copy it or download a text file. Running either tool leaves your input intact.
 
-## What Does It Do?
+Start with **Examples**: three ready-to-run examples in each tool. **Undo example** restores your previous draft and output until you edit or switch tools.
 
-This tool reads your text and finds lines that match your search words (called "needles"). You can choose to:
-- **Keep** only the matching lines
-- **Remove** the matching lines
+## What you can do
 
-All processing happens in your browser. No data is sent to any server.
+### Filter out the noise
 
-## How to Use
+- **Keep or remove matching lines.** Isolate warnings and errors, remove comments, or narrow a list to relevant entries.
+- **Search for several terms at once.** Separate terms with commas or new lines; a line matches if it contains any term.
+- **Control your matches.** Turn on **Match case**, **Whole word**, or **Regex** for more precise searches.
 
-### 1. Add Your Text
-You can add text in three ways:
-- **Paste** - Click the "Paste" button or press `Ctrl+V` / `Cmd+V`
-- **Upload** - Click "Upload" and choose a file
-- **Drag and Drop** - Drag a file into the input box
+Enter your terms in **Find**, choose **Keep** or **Remove**, then click **Filter lines**.
 
-Supported file types: `.txt`, `.json`, `.jsonl`, `.md`
+### Replace repetitive edits
 
-### 2. Add Your Needles
-Needles are the words or patterns you want to find. You can:
-- Type one needle per line, OR
-- Separate needles with commas
+- **Replace every occurrence.** Update URLs, rename a project, or change repeated wording in one pass.
+- **Remove unwanted text.** Leave **Replace with** empty to delete matches, such as a repeated `TODO: ` prefix.
+- **Match literal text, including multiple lines.** Punctuation and regex characters are treated as ordinary text. **Match case** is on by default; turn it off to match different capitalization.
 
-**Example:**
-```
-ERROR
-WARN
-```
+Fill in **Find** and **Replace with**, then click **Replace all**.
 
-### 3. Choose Your Options
+## A workspace that stays out of your way
 
-**Mode:**
-- **Keep** - Show only lines that match your needles
-- **Remove** - Hide lines that match your needles
+- **Local processing.** Your text stays in your browser during filtering and replacement.
+- **Saved drafts.** Input and settings are saved in this browser when local storage is available. Output and undo history are session-only—copy or download results to keep them.
+- **Recover from a clear.** **Clear all** offers **Undo clear** until your next edit.
+- **18 Everforest themes.** Mix **Light / Dark**, **Soft / Medium / Hard**, and **Original / Dim / Deep**. Dim and Deep darken the surfaces; your choice is remembered.
+- **Keyboard shortcuts.** `⌘/Ctrl + Enter` runs the tool; `⌘/Ctrl + Shift + C` copies output.
 
-**Pattern Options:**
-- **Regex** - Use regular expressions for complex patterns
-- **Case sensitive** - Match uppercase and lowercase exactly
-- **Whole word** - Match complete words only (not parts of words)
-
-### 4. Filter
-Click the "Filter" button or press `Ctrl+Enter` / `Cmd+Enter`
-
-### 5. Get Your Results
-After filtering, you can:
-- **Copy** - Copy results to clipboard (`Ctrl+Shift+C` / `Cmd+Shift+C`)
-- **Download** - Save results as `filtered.txt`
-
-## Use Cases
-
-This tool is useful any time you have text with many lines and need to make a simple choice: **keep or remove** lines based on matching patterns.
-
-Think of it like a gatekeeper that checks each line for a special word (the "needle"). If the word is found, the line is either kept or removed based on your choice.
-
-### Practical Examples
-
-**Log File Analysis**
-- Keep only error lines from a large log file
-- Remove debug messages to see important logs only
-
-**Email and Contact Lists**
-- Keep only email addresses ending with `.com`
-- Remove all Gmail accounts from a list
-- Find all emails from a specific domain
-
-**Code Maintenance**
-- Remove all commented lines from your code
-- Extract only import statements to see dependencies
-- Find all function definitions
-
-**CSV Data Cleaning**
-- Remove rows with `NULL` or empty values
-- Delete lines with specific error codes
-- Keep only valid data rows
-
-**URL Lists**
-- Keep only secure HTTPS URLs
-- Remove URLs from specific websites
-- Filter out broken or test links
-
-**Configuration Files**
-- Find settings that start with a specific prefix
-- Remove old or deprecated configuration options
-- Extract only database-related settings
-
-**Git Diff Analysis**
-- Show only lines that were added (start with `+`)
-- Show only lines that were removed (start with `-`)
-- Filter changes from specific files
-
-**Data Validation**
-- Remove lines that do not match expected patterns
-- Keep only lines with valid phone numbers
-- Filter out lines with special characters
-
-**Text Preparation**
-- Remove lines that contain numbers
-- Delete lines with punctuation only
-- Keep lines with specific keywords
-
-**Web Scraping Results**
-- Filter extracted data by keywords
-- Remove duplicate or empty entries
-- Keep only results from specific sections
-
-### The Key Idea
-
-If you have text where each line is separate and independent, and you need to decide whether to keep or discard each line based on a pattern, this tool can help. It works like a simple yes/no question for each line: "Does this line contain my search word?"
-
-## Features
-
-- **Line Numbers** - See line numbers for both input and output
-- **Real-time Stats** - View total lines, kept lines, removed lines, and processing time
-- **Keyboard Shortcuts** - Work faster with keyboard commands
-- **Auto-save** - Your text and settings are saved in your browser
-- **Privacy** - Everything runs in your browser, nothing is uploaded
-
-## Keyboard Shortcuts
-
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl/Cmd + Enter` | Run filter |
-| `Ctrl/Cmd + Shift + C` | Copy results |
-| `Esc` | Clear error messages |
-
-## Technical Details
-
-- **Framework:** Next.js (React)
-- **Language:** TypeScript
-- **Styling:** Tailwind CSS
-- **Icons:** Lucide React
-
-## Installation
-
-1. Clone this repository
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Run the development server:
-   ```bash
-   npm run dev
-   ```
-4. Open [http://localhost:3000](http://localhost:3000) in your browser
-
-## Build for Production
-
-```bash
-npm run build
-npm start
-```
-
-## License
-
-MIT License - free to use, modify, and distribute.
-
-## Contributing
-
-This is a personal project. Feel free to fork it for your own use.
-
----
-
-Made with care for developers who work with text and logs daily.
+**[Open Line Filter and try an example →](https://line-filter.vercel.app/)**
