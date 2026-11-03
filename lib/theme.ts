@@ -42,29 +42,78 @@ function mix(a: string, b: string, amount: number): string {
   ).toString(16).padStart(2, "0")).join("");
 }
 
+function luminance(hex: string): number {
+  const channels = [1, 3, 5].map((offset) => {
+    const value = parseInt(hex.slice(offset, offset + 2), 16) / 255;
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  });
+  return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+}
+
+// Keep the palette hue, adjusting only as much as its actual surfaces require.
+function readable(color: string, surfaces: string[], dark: boolean, minimum = 7): string {
+  const backgrounds = surfaces.map(luminance);
+  for (let step = 0; step <= 100; step++) {
+    const candidate = mix(color, dark ? "#ffffff" : "#101719", step / 100);
+    const foreground = luminance(candidate);
+    if (backgrounds.every((background) =>
+      (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05) >= minimum,
+    )) return candidate;
+  }
+  throw new Error("Theme surfaces cannot meet the required contrast.");
+}
+
 export function getThemeTokens(theme: Theme) {
   const dark = theme.mode === "dark";
   const amount = { original: 0, dim: 0.16, deep: 0.32 }[theme.depth];
   const [canvas, surface, hover, pressed, dangerSurface, selection] = palettes[theme.mode][theme.contrast]
     .map((color) => mix(color, dark ? "#101719" : "#b9c0ab", amount));
   const accent = dark ? "#e69875" : "#f57d26";
+  // All seven original accents retain one meaning. Raw colors tint surfaces;
+  // adjusted companions make labels and essential indicators accessible.
+  const colors = dark
+    ? { navigation: "#7fbbb3", success: "#a7c080", active: "#83c092", warning: "#dbbc7f", danger: "#e67e80", example: "#d699b6" }
+    : { navigation: "#3a94c5", success: "#8da101", active: "#35a77c", warning: "#dfa000", danger: "#f85552", example: "#df69ba" };
+  const pressedSurface = mix(hover, pressed, 0.25);
+  const baseSurfaces = [canvas, surface, hover, pressedSurface];
+  const soft = (color: string) => mix(surface, color, dark ? 0.12 : 0.09);
+  const tints = { navigation: soft(colors.navigation), success: soft(colors.success), active: soft(colors.active), warning: soft(colors.warning), danger: dangerSurface, example: soft(colors.example) };
+  const surfaces = [...baseSurfaces, ...Object.values(tints), mix(surface, selection, 0.5)];
+  const label = (role: keyof typeof colors) => readable(colors[role], surfaces, dark);
+  const indicator = (role: keyof typeof colors) => readable(colors[role], surfaces, dark, 3);
   return {
     "color-scheme": theme.mode,
     "--canvas": canvas,
     "--surface": surface,
-    "--text": dark ? "#d3c6aa" : "#293136",
-    "--muted": dark ? "#b3bdb3" : "#505c62",
+    "--text": readable(dark ? "#d3c6aa" : "#293136", surfaces, dark),
+    "--muted": readable(dark ? "#b3bdb3" : "#505c62", surfaces, dark),
     "--line": mix(surface, dark ? "#9da9a0" : "#5c6a72", 0.24),
     "--field-line": dark ? "#9da9a0" : "#5c6a72",
     "--hover": hover,
-    "--pressed": mix(hover, pressed, 0.25),
+    "--pressed": pressedSurface,
     "--accent": accent,
     "--accent-hover": mix(accent, dark ? "#f2efdf" : "#fffbef", 0.12),
-    "--accent-pressed": mix(accent, "#1e2326", 0.08),
-    "--on-accent": "#1e2326",
-    "--focus": dark ? "#7fbbb3" : "#286489",
+    "--accent-pressed": mix(accent, dark ? "#f2efdf" : "#fffbef", 0.04),
+    "--on-accent": "#080c0e",
+    "--focus": indicator("navigation"),
     "--accent-soft": mix(surface, selection, 0.5),
-    "--danger": dark ? "#f3c0b8" : "#8f3033",
+    "--navigation": label("navigation"),
+    "--navigation-indicator": indicator("navigation"),
+    "--navigation-soft": tints.navigation,
+    "--success": label("success"),
+    "--success-indicator": indicator("success"),
+    "--success-soft": tints.success,
+    "--active": label("active"),
+    "--active-indicator": indicator("active"),
+    "--active-soft": tints.active,
+    "--warning": label("warning"),
+    "--warning-indicator": indicator("warning"),
+    "--warning-soft": tints.warning,
+    "--example": label("example"),
+    "--example-indicator": indicator("example"),
+    "--example-soft": tints.example,
+    "--danger": label("danger"),
+    "--danger-indicator": indicator("danger"),
     "--danger-soft": dangerSurface,
   };
 }

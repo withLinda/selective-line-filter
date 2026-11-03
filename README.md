@@ -38,7 +38,7 @@ Fill in **Find** and **Replace with**, then click **Replace all**.
 
 - **Local processing.** Your text stays in your browser during filtering and replacement.
 - **Saved drafts.** Input and settings are saved in this browser when local storage is available. Output and undo history are session-only—copy or download results to keep them.
-- **Recover from a clear.** **Clear all** offers **Undo clear** until your next edit.
+- **Start fresh anytime.** **Clear all** empties both tools and output and resets matching options, keeping your current tool and theme. A separate **Undo clear** restores your previous draft until your next edit. Clear all stays available while browsing examples.
 - **18 Everforest themes.** Mix **Light / Dark**, **Soft / Medium / Hard**, and **Original / Dim / Deep**. Dim and Deep darken the surfaces; your choice is remembered.
 - **Keyboard shortcuts.** `⌘/Ctrl + Enter` runs the tool; `⌘/Ctrl + Shift + C` copies output.
 

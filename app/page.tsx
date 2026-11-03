@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState, type KeyboardEvent } from "react";
-import { ArrowRight, Check, ClipboardPaste, Copy, Download, ListFilter, RotateCcw, Upload, X } from "lucide-react";
+import { ArrowRight, Check, CheckCircle2, ClipboardPaste, Copy, Download, FileInput, FileOutput, ListFilter, Pencil, RotateCcw, Trash2, Upload, X } from "lucide-react";
 import { TextEditor } from "./components/text-editor";
 import { useWorkspace } from "./use-workspace";
 import type { Tool } from "@/lib/workspace";
@@ -22,6 +22,7 @@ export default function Home() {
   const importId = useRef(0);
   const canRun = ready && !!input && (tool === "filter" || !!replace.find);
   const hasContent = !!(input || needles || replace.find || replace.replacement || result);
+  const canClear = hasContent || busy || !!error || opts.mode !== "keep" || opts.useRegex || opts.caseSensitive || opts.wholeWord || !replace.caseSensitive;
 
   const paste = async () => {
     const version = revision.current;
@@ -114,9 +115,11 @@ export default function Home() {
         </div>
         <div className="header-actions">
         <ThemePicker />
-        <button className="button quiet clear-button" disabled={!ready || (!canUndo && !hasContent)} onClick={() => { setCopied(null); canUndo ? undo() : clear(); }}>
-          {canUndo ? <RotateCcw size={15} aria-hidden="true" /> : <X size={15} aria-hidden="true" />}
-          {canUndo ? `Undo ${undoKind}` : "Clear all"}
+        {canUndo && <button className="button quiet undo-button" onClick={() => { setCopied(null); undo(); inputRef.current?.focus(); }}>
+          <RotateCcw size={15} aria-hidden="true" />Undo {undoKind}
+        </button>}
+        <button className="button clear-button" disabled={!ready || !canClear} title="Clear both tools and output; reset matching options" onClick={() => { setCopied(null); clear(); inputRef.current?.focus(); }}>
+          <Trash2 size={15} aria-hidden="true" />Clear all
         </button>
         </div>
       </header>
@@ -170,7 +173,7 @@ export default function Home() {
             onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false); }}
             onDrop={(event) => { event.preventDefault(); setDragging(false); const file = event.dataTransfer.files[0]; if (file && ready) void upload(file); }}>
             <div className="pane-header">
-              <label id="input-label" htmlFor="input-text">Input</label>
+              <label id="input-label" htmlFor="input-text"><FileInput size={16} aria-hidden="true" />Input</label>
               <div className="pane-actions">
                 <button className="button quiet" disabled={!ready} onClick={paste}><ClipboardPaste size={15} aria-hidden="true" />Paste</button>
                 <button className="icon-button" disabled={!ready} aria-label="Upload file" title="Upload .txt, .json, .jsonl, or .md" onClick={() => fileRef.current?.click()}><Upload size={16} aria-hidden="true" /></button>
@@ -181,11 +184,11 @@ export default function Home() {
             <div className="pane-footer"><span>{linesLabel(countLines(input))}</span></div>
           </section>
 
-          <section className="editor-pane output-pane" aria-labelledby="output-label" aria-busy={busy}>
+          <section className={`editor-pane output-pane${result ? result.edited ? " is-edited" : " has-result" : ""}`} aria-labelledby="output-label" aria-busy={busy}>
             <div className="pane-header">
-              <label id="output-label" htmlFor="output-text">Output</label>
+              <label id="output-label" htmlFor="output-text"><FileOutput size={16} aria-hidden="true" />Output</label>
               <div className="pane-actions">
-                <button className="button quiet" disabled={!result} onClick={copy} title="Copy output · ⌘⇧C / Ctrl+Shift+C" aria-keyshortcuts="Meta+Shift+C Control+Shift+C">
+                <button className={`button quiet${isCopied ? " is-copied" : ""}`} disabled={!result} onClick={copy} title="Copy output · ⌘⇧C / Ctrl+Shift+C" aria-keyshortcuts="Meta+Shift+C Control+Shift+C">
                   {isCopied ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}{isCopied ? "Copied" : "Copy"}
                 </button>
                 <button className="icon-button" disabled={!result} onClick={download} aria-label="Download output" title="Download output"><Download size={16} aria-hidden="true" /></button>
@@ -193,7 +196,7 @@ export default function Home() {
             </div>
             <TextEditor id="output-text" value={result?.output ?? ""} readOnly={!result} onChange={(event) => { setCopied(null); editOutput(event.target.value); }} />
             <div className="pane-footer">
-              <span role="status">{busy ? "Processing…" : summary}</span>
+              <span role="status" className="output-status">{result && (result.edited ? <Pencil size={14} aria-hidden="true" /> : <CheckCircle2 size={14} aria-hidden="true" />)}{busy ? "Processing…" : summary}</span>
               {result?.edited && <span>{linesLabel(countLines(result.output))}</span>}
               {result && !result.edited && <details className="result-details">
                 <summary aria-label="Result details">{linesLabel(countLines(result.output))}</summary>

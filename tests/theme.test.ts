@@ -28,17 +28,38 @@ test("every theme keeps readable text, action labels and meaningful boundaries",
     const t = getThemeTokens({ mode, contrast: family, depth });
     const name = `${mode}/${family}/${depth}`;
     for (const surface of ["--canvas", "--surface", "--hover", "--pressed"] as const) {
-      assert.ok(contrast(t["--text"], t[surface]) >= 5, `${name}: dense text on ${surface}`);
-      assert.ok(contrast(t["--muted"], t[surface]) >= 4.5, `${name}: secondary text on ${surface}`);
+      assert.ok(contrast(t["--text"], t[surface]) >= 7, `${name}: AAA text on ${surface}`);
+      assert.ok(contrast(t["--muted"], t[surface]) >= 7, `${name}: AAA secondary text on ${surface}`);
     }
     for (const state of ["--accent", "--accent-hover", "--accent-pressed"] as const) {
-      assert.ok(contrast(t["--on-accent"], t[state]) >= 4.5, `${name}: action ${state}`);
+      assert.ok(contrast(t["--on-accent"], t[state]) >= 7, `${name}: AAA action ${state}`);
     }
-    assert.ok(contrast(t["--danger"], t["--danger-soft"]) >= 4.5, `${name}: error text`);
-    assert.ok(contrast(t["--text"], t["--accent-soft"]) >= 4.5, `${name}: selection text`);
+    assert.ok(contrast(t["--danger"], t["--danger-soft"]) >= 7, `${name}: AAA error text`);
+    assert.ok(contrast(t["--text"], t["--accent-soft"]) >= 7, `${name}: AAA selection text`);
     assert.ok(contrast(t["--field-line"], t["--surface"]) >= 3, `${name}: field boundary`);
     for (const surface of ["--surface", "--canvas", "--hover"] as const) {
       assert.ok(contrast(t["--focus"], t[surface]) >= 3, `${name}: focus on ${surface}`);
+    }
+  }
+});
+
+test("semantic accents keep AAA labels and visible indicators on every actual surface", () => {
+  for (const mode of THEME_MODES) for (const family of THEME_CONTRASTS) for (const depth of THEME_DEPTHS) {
+    const t: Record<string, string> = getThemeTokens({ mode, contrast: family, depth });
+    for (const role of ["navigation", "success", "active", "warning", "danger", "example"]) {
+      const name = `${mode}/${family}/${depth}/${role}`;
+      const foreground = t[`--${role}`];
+      const tint = t[`--${role}-soft`];
+      const indicator = t[`--${role}-indicator`];
+      assert.ok(foreground && tint && indicator, `${name}: complete semantic color roles`);
+      for (const surface of ["--canvas", "--surface", "--hover", "--pressed", `--${role}-soft`]) {
+        assert.ok(contrast(foreground, t[surface]) >= 7, `${name}: AAA label on ${surface}`);
+        assert.ok(contrast(indicator, t[surface]) >= 3, `${name}: meaningful indicator on ${surface}`);
+      }
+      for (const text of ["--text", "--muted"]) {
+        assert.ok(contrast(t[text], tint) >= 7, `${name}: AAA ${text} on tint`);
+      }
+      assert.ok(contrast(t["--focus"], tint) >= 3, `${name}: focus on tint`);
     }
   }
 });

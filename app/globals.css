@@ -20,10 +20,10 @@ svg { flex-shrink: 0; }
 .app-shell { width: min(100%, 1440px); margin: 0 auto; padding: 0 48px 40px; }
 .app-header { min-height: 112px; display: flex; align-items: center; gap: 48px; }
 .app-header h1 { display: flex; align-items: center; gap: 10px; font-size: 1rem; font-weight: 600; letter-spacing: -0.03em; white-space: nowrap; }
-.app-header h1 svg { color: var(--muted); }
+.app-header h1 svg { color: var(--navigation-indicator); }
 .tool-switch { display: flex; align-items: center; padding: 4px; gap: 2px; background: var(--hover); border-radius: 8px; }
 .tool-switch button { padding: 7px 20px; min-height: 34px; border-radius: 5px; color: var(--muted); font-weight: 500; }
-.tool-switch button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px #00000012; }
+.tool-switch button[aria-pressed="true"] { background: var(--navigation-soft); color: var(--navigation); box-shadow: inset 0 -2px var(--navigation-indicator); }
 .header-actions { margin-left: auto; display: flex; align-items: center; gap: 12px; }
 .button, .icon-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 6px; min-height: 36px; font-size: 0.8125rem; font-weight: 500; white-space: nowrap; }
 .button { padding: 8px 12px; }
@@ -35,6 +35,12 @@ svg { flex-shrink: 0; }
 .primary:active:not(:disabled) { background: var(--accent-pressed); }
 .quiet:active:not(:disabled), .icon-button:active:not(:disabled) { background: var(--pressed); }
 .primary:disabled { opacity: 1; background: var(--hover); color: var(--muted); }
+.clear-button { color: var(--danger); background: var(--danger-soft); }
+.clear-button:hover:not(:disabled) { background: var(--hover); box-shadow: inset 0 0 0 1px var(--danger-indicator); }
+.clear-button:active:not(:disabled) { background: var(--pressed); }
+.clear-button:disabled { opacity: 1; background: var(--hover); color: var(--muted); }
+.undo-button { color: var(--warning); }
+.undo-button:hover:not(:disabled) { background: var(--warning-soft); color: var(--warning); }
 
 .workspace { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 2px 6px #00000003; }
 .task-controls { padding: 24px; border-bottom: 1px solid var(--line); }
@@ -56,8 +62,20 @@ svg { flex-shrink: 0; }
 .editors { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .editor-pane { min-width: 0; position: relative; border-radius: 0 0 0 12px; }
 .editor-pane + .editor-pane { border-left: 1px solid var(--line); border-radius: 0 0 12px 0; }
-.pane-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px 12px 24px; min-height: 60px; border-bottom: 1px solid var(--line); }
-.pane-header > label { font-weight: 500; font-size: 0.8125rem; }
+.pane-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px 12px 24px; min-height: 60px; border-bottom: 1px solid var(--line); background: var(--navigation-soft); }
+.pane-header > label { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.8125rem; color: var(--navigation); }
+.pane-header > label svg { color: var(--navigation-indicator); }
+.output-pane .pane-header { background: var(--surface); }
+.output-pane .pane-header > label { color: var(--text); }
+.output-pane .pane-header > label svg { color: var(--muted); }
+.output-pane.has-result .pane-header { background: var(--success-soft); }
+.output-pane.has-result .pane-header > label, .has-result .output-status { color: var(--success); }
+.output-pane.has-result .pane-header > label svg { color: var(--success-indicator); }
+.output-pane.is-edited .pane-header { background: var(--warning-soft); }
+.output-pane.is-edited .pane-header > label, .is-edited .output-status { color: var(--warning); }
+.output-pane.is-edited .pane-header > label svg { color: var(--warning-indicator); }
+.output-status { display: inline-flex; align-items: center; gap: 6px; }
+.pane-actions .is-copied, .pane-actions .is-copied:hover:not(:disabled) { background: var(--active-soft); color: var(--active); }
 .pane-actions { display: flex; align-items: center; gap: 2px; }
 .text-editor { display: flex; position: relative; height: clamp(240px, calc(100dvh - 456px), 880px); min-height: 240px; font-family: var(--mono); font-size: 0.8125rem; line-height: 1.5rem; }
 .text-editor:focus-within { outline: 2px solid var(--focus); outline-offset: -2px; }
@@ -86,6 +104,9 @@ svg { flex-shrink: 0; }
 .picker-options button:active { background: var(--pressed); }
 .picker-options button[aria-pressed="true"] { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: inset 0 -2px var(--field-line); }
 .examples-picker { margin-left: auto; }
+.examples-picker > summary, .examples-picker[open] > summary { background: var(--example-soft); color: var(--example); }
+.examples-picker > summary.quiet:hover:not(:disabled) { background: var(--example-soft); color: var(--example); }
+.examples-picker > summary svg { color: var(--example-indicator); }
 .examples-picker .disclosure-panel { padding: 6px; width: 248px; }
 .example-option { display: block; text-align: left; width: 100%; padding: 12px; border-radius: 4px; font-size: 0.8125rem; }
 .example-option:hover { background: var(--hover); }
@@ -93,7 +114,8 @@ svg { flex-shrink: 0; }
 
 @media (max-width: 900px) {
   .app-shell { padding: 0 24px 24px; }
-  .app-header { min-height: 96px; gap: 24px; }
+.app-header { min-height: 96px; gap: 20px; flex-wrap: wrap; padding-block: 20px; }
+.header-actions { gap: 6px; }
   .match-options { gap: 8px 16px; }
 }
 
@@ -101,9 +123,8 @@ svg { flex-shrink: 0; }
   .app-shell { padding: 0 16px 20px; }
   .app-header { display: grid; grid-template-columns: 1fr auto; gap: 12px; padding: 20px 0; }
   .app-header h1 { font-size: 0.9375rem; }
-  .header-actions { grid-column: 2; grid-row: 1; gap: 2px; position: relative; }
+  .header-actions { grid-column: 1 / -1; grid-row: 3; justify-content: flex-end; flex-wrap: wrap; width: 100%; gap: 4px; position: relative; }
   .header-actions .button { padding-inline: 8px; }
-  .clear-button svg { display: none; }
   .tool-switch { grid-column: 1 / -1; width: 100%; }
   .tool-switch button { flex: 1; min-height: 40px; }
   .task-controls { padding: 18px 16px; }

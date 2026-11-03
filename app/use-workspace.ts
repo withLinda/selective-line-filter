@@ -110,7 +110,7 @@ export function useWorkspace() {
     cancel();
     setBusy(false);
     setUndoState({ workspace, result, kind: "clear" });
-    setWorkspace({ ...createWorkspace(), tool: workspace.tool, opts: workspace.opts, replace: { ...workspace.replace, find: "", replacement: "" } });
+    setWorkspace({ ...createWorkspace(), tool: workspace.tool });
     setResult(null);
     setError(null);
   }, [cancel, workspace, result]);
